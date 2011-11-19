@@ -1,0 +1,23 @@
+Chipset UBX-G5010
+
+UART (TTL) interface
+Digital I/O Voltage Level 1.65 – 3.6 V
+
+Output Message Format
+GPS Protocol: NMEA, UBX binary
+GGA, GLL, GSA, GSV, RMC, VTG, TXT 
+
+Operational limits 
+Velocity: 500 m/s
+Altitude: 50,000 m
+
+Environmental Characteristics
+Operating Temperature - 40°C to + 85°C
+
+Power
+Power supply voltage 3.6v
+Peak Supply Current Max=150mA
+Max Performance Mode Acquisition = 74mA
+Max Performance Mode Tracking = 47mA
+Eco Mode Acquisition = 67mA
+Eco Mode Tracking = 43mA
