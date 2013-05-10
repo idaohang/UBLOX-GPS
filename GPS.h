@@ -1,9 +1,11 @@
 /*
+
 Copyright (C)2011 Kostas Tamateas <nosebleedKT@gmail.com>
 This program is distributed under the terms of the GNU
 General Public License, version 2. You may use, modify,
 and redistribute it under the terms of this license.
 A copy should be included with this source.
+
 */
 
 /*
@@ -36,8 +38,6 @@ A copy should be included with this source.
 #define __GPS_H__
 
 #include <WProgram.h>
-#include <EEPROM.h>
-#include "Settings.h"
 
 const byte grDatum[] = { 0xB5, 0x62, 0x06, 0x06, 0x02, 0x00, 0x48, 0x00, 0x56, 0xDA };
 
@@ -63,13 +63,10 @@ class GPS
 {
   public:
     GPS();
-    boolean setup();
-    void start();
-    void stop();
-    void restart();
-    boolean sendUBX(const byte *, byte);
-    boolean UBXAck(const byte *);
-    void readSentence();
+    boolean setup(unsigned long, HardwareSerial &);
+    boolean sendUBX(const byte *, byte, HardwareSerial &);
+    boolean UBXAck(const byte *, HardwareSerial &);
+    void readSentence(HardwareSerial &);
     char utcTime[10];    // UTC Time, fixed length 9
     char Latitude[11];   // Latitude, fixed length 10
     char Equator;        // Equator, fixed length 1
@@ -79,28 +76,28 @@ class GPS
     char NavStat[3];     // Navigation Status, fixed length 2
     char SOG[8];         // Speed over ground, km/h, max length 7
     char COG[7];         // Course over ground, degrees, fixed length 6
-    char Vvel[9];        // Vertical velocity, positive=downwards
+    char Vvel[9];        // Vertical velocity, negative=upwards
     char HDOP[6];        // Horizontal Dilution of Precision
     char VDOP[6];        // Vertical Dilution of Precision
     char TDOP[6];        // Time Dilution of Precision
     char SatNum[3];      // Number of GPS satellites used in the navigation solution, max length 2
     char gLat[8];        // Google Lat
     char gLon[8];        // Google Lon
+    char ascdesc;        // A=ascending, D=descending, F=floating
     char sentence[115];
     
   private:
     byte hex2Byte(char);
     void parseUBX0();
-    void calcCoords();
-    void recAltitude();
-    void setDefaults(boolean);
+    void makeGlat();
+    void makeGlon();
+    void setDefaults();
 
     char ch; 
     byte index;   
     byte parity;
     byte checksum;
     byte healthFlag;
-    unsigned int highestAlt;
 };
 
 #endif
