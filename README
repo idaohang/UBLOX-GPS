@@ -1,7 +1,7 @@
 Chipset UBX-G5010
 
 UART (TTL) interface
-Digital I/O Voltage Level 1.65 – 3.6 V
+Digital I/O Voltage Level 1.65 â€“ 3.6 V
 
 Output Message Format
 GPS Protocol: NMEA, UBX binary
@@ -12,7 +12,7 @@ Velocity: 500 m/s
 Altitude: 50,000 m
 
 Environmental Characteristics
-Operating Temperature - 40°C to + 85°C
+Operating Temperature - 40Â°C to + 85Â°C
 
 Power
 Power supply voltage 3.6v
