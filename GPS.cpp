@@ -1,100 +1,80 @@
 /*
+
 Copyright (C)2011 Kostas Tamateas <nosebleedKT@gmail.com>
 This program is distributed under the terms of the GNU
 General Public License, version 2. You may use, modify,
 and redistribute it under the terms of this license.
 A copy should be included with this source.
+
 */
 
 #include "GPS.h"
 
 GPS::GPS()
 {
-  setDefaults(false);
 }
 
-boolean GPS::setup()
+boolean GPS::setup(unsigned long baud, HardwareSerial &serialport)
 {
-  Serial.begin(9600);  
+  setDefaults();
+    
+  serialport.begin(baud);  
   
-  if(DEBUG_ENABLED) DEBUG.print("Setting Airbone mode..");  
-  if(sendUBX(airbone1G, sizeof(airbone1G))) healthFlag |= 0b10000000;
+  // Serial.print("Setting Airbone mode..");  
+  if(sendUBX(airbone1G, sizeof(airbone1G), serialport)) healthFlag |= 0b10000000;
   
-  if(DEBUG_ENABLED) DEBUG.print("Disabling SBAS..");
-  if(sendUBX(SBASOFF, sizeof(SBASOFF))) healthFlag |= 0b00000001;
+  // Serial.print("Disabling SBAS..");
+  if(sendUBX(SBASOFF, sizeof(SBASOFF), serialport)) healthFlag |= 0b00000001;
   
-  if(DEBUG_ENABLED) DEBUG.print("Disabling GGA..");
-  if(sendUBX(GGAOFF, sizeof(GGAOFF))) healthFlag |= 0b00000010; 
+  // Serial.print("Disabling GGA..");
+  if(sendUBX(GGAOFF, sizeof(GGAOFF), serialport)) healthFlag |= 0b00000010; 
   
-  if(DEBUG_ENABLED) DEBUG.print("Disabling GLL..");
-  if(sendUBX(GLLOFF, sizeof(GLLOFF))) healthFlag |= 0b00000100;   
+  // Serial.print("Disabling GLL..");
+  if(sendUBX(GLLOFF, sizeof(GLLOFF), serialport)) healthFlag |= 0b00000100;   
   
-  if(DEBUG_ENABLED) DEBUG.print("Disabling GSA..");
-  if(sendUBX(GSAOFF, sizeof(GSAOFF))) healthFlag |= 0b00001000;  
+  // Serial.print("Disabling GSA..");
+  if(sendUBX(GSAOFF, sizeof(GSAOFF), serialport)) healthFlag |= 0b00001000;  
   
-  if(DEBUG_ENABLED) DEBUG.print("Disabling GSV..");
-  if(sendUBX(GSVOFF, sizeof(GSVOFF))) healthFlag |= 0b00010000;    
+  // Serial.print("Disabling GSV..");
+  if(sendUBX(GSVOFF, sizeof(GSVOFF), serialport)) healthFlag |= 0b00010000;    
   
-  if(DEBUG_ENABLED) DEBUG.print("Disabling RMC..");
-  if(sendUBX(RMCOFF, sizeof(RMCOFF))) healthFlag |= 0b00100000;  
+  // Serial.print("Disabling RMC..");
+  if(sendUBX(RMCOFF, sizeof(RMCOFF), serialport)) healthFlag |= 0b00100000;  
   
-  if(DEBUG_ENABLED) DEBUG.print("Disabling VTG..");
-  if(sendUBX(VTGOFF, sizeof(VTGOFF))) healthFlag |= 0b01000000;
+  // Serial.print("Disabling VTG..");
+  if(sendUBX(VTGOFF, sizeof(VTGOFF), serialport)) healthFlag |= 0b01000000;
   
   delay(1000);
-  
-  Serial.flush();
-  readSentence();
+  serialport.flush();
   
   if(healthFlag==0xFF) 
   {
-    if(DEBUG_ENABLED)
-      DEBUG.println("GPS ready");     
+    Serial.println("GPS Ok");     
     return true;
   }
   else 
+  {
+    Serial.println("GPS Nok"); 
     return false;
+  }
 }
 
-void GPS::start()
-{
-  if(DEBUG_ENABLED)
-    DEBUG.print("Starting GPS..");
-  setup();   
-  sendUBX(startGPS, sizeof(startGPS));
-}
-
-void GPS::stop()
-{
-  if(DEBUG_ENABLED)
-    DEBUG.print("Stopping GPS..");
-  sendUBX(stopGPS, sizeof(stopGPS));
-  Serial.end();
-}
-
-void GPS::restart()
-{
-  stop();
-  start();
-}
-
-boolean GPS::sendUBX(const byte *payload, byte len) 
+boolean GPS::sendUBX(const byte *payload, byte len, HardwareSerial &serialport) 
 {
   for(byte i=0; i<len; i++) 
-    Serial.print(payload[i], BYTE);
+    serialport.print(payload[i], BYTE);
    
-  return UBXAck(payload);
+  return UBXAck(payload, serialport);
 }
 
-boolean GPS::UBXAck(const byte *payload)
+boolean GPS::UBXAck(const byte *payload, HardwareSerial &serialport)
 {
-  byte b;
-  byte ackByteID;
+  byte ackByteID = 0;
   byte ackPacket[10];
   unsigned long startTime = millis();
   
   // Construct the expected ACK packet    
-  ackPacket[0] = 0xB5;	
+  ackPacket[0] = 0xB5;  
   ackPacket[1] = 0x62;	
   ackPacket[2] = 0x05;	
   ackPacket[3] = 0x01;	
@@ -118,23 +98,21 @@ boolean GPS::UBXAck(const byte *payload)
     if (ackByteID > 9) 
     {
       // All packets in order!
-      if(DEBUG_ENABLED)
-        DEBUG.println("OK");
+      //if(DEBUG_ENABLED) DEBUG.println("Ok");
       return true;
     }
  
-    // Timeout if no valid response in 3 seconds
-    if (millis() - startTime > 3000) 
+    // Timeout if no valid response
+    if (millis() - startTime > 2000) 
     { 
-      if(DEBUG_ENABLED)
-        DEBUG.println("NOK");
+      //if(DEBUG_ENABLED) DEBUG.println("Nok");
       return false;
     }
  
     // Make sure data is available to read
-    if (Serial.available()) 
+    if (serialport.available()) 
     {
-      b = Serial.read();
+      byte b = serialport.read();
       // Check that bytes arrive in sequence as per expected ACK packet
       if (b == ackPacket[ackByteID]) 
       { 
@@ -148,35 +126,38 @@ boolean GPS::UBXAck(const byte *payload)
   }  	
 }
 
-void GPS::readSentence()
+void GPS::readSentence(HardwareSerial &serialport)
 {
   index = 0;   
   parity = 0;
   checksum = 0;
-  setDefaults(false);   
+  setDefaults();   
   
-  Serial.println("$PUBX,00*33");
-  
-  while(Serial.available())
+  serialport.println("$PUBX,00*33");
+
+  while(serialport.available() && index<sizeof(sentence))
   {  
-      ch = Serial.read();
-      
+      ch = serialport.read(); 
+
       if(ch == '$')
       {
         index = 0;
         continue;
       }
       
-      if(ch == '*')
-        break;
+      if(ch == '*') break;
       
       sentence[index++] = ch;
       parity ^= ch;
   }  
  
-  while(Serial.available())
+  sentence[index] = '\0';
+
+  //Serial.println(sentence);
+ 
+  while(serialport.available())
   {
-      ch = Serial.read();
+      ch = serialport.read();
       
       if(ch == 13)
         continue;
@@ -189,40 +170,22 @@ void GPS::readSentence()
       else 
         checksum += hex2Byte(ch);
   }
-
-  sentence[index] = '\0';
-  
-  if(DEBUG_ENABLED)
-    DEBUG.println(sentence);
          
   if(sentence[0] == 'P')  // Be sure the sentence we got is a PUBX.
   { 
-   if(checksum == parity)
-   {
-     parseUBX0();
-     if(strcmp(NavStat, "NF") != 0 ) 
-     {
-       calcCoords(); 
-       recAltitude();       
-     }
-     else 
-     {
-       setDefaults(true);
-     }  
-   }
-   else
-   {
-     setDefaults(false);  
-     if(DEBUG_ENABLED)
-       DEBUG.print("PARITY");
-   }
+    if(checksum == parity)
+    {
+      parseUBX0();
+      if(strcmp(NavStat, "NF") != 0 ) 
+      {
+        makeGlat();
+        makeGlon(); 
+        return;      
+      }
+    }
   }
-  else
-  {
-    setDefaults(false);    
-    if(DEBUG_ENABLED)
-      DEBUG.println("WRONG SENTENCE"); 
-  }
+  
+  setDefaults();
 }
 
 void GPS::parseUBX0()
@@ -240,15 +203,13 @@ void GPS::parseUBX0()
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(utcTime)-1) utcTime[j++] = sentence[i+1+j]; 
           utcTime[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(utcTime);
+          //Serial.println(utcTime);
           break;    
         case 3: // Latitude
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(Latitude)-1) Latitude[j++] = sentence[i+1+j]; 
           Latitude[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(Latitude);
+          //Serial.print(Latitude);
           break; 
         case 4: // Equator
           Equator = sentence[i+1];
@@ -257,8 +218,7 @@ void GPS::parseUBX0()
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(Longitude)-1) Longitude[j++] = sentence[i+1+j]; 
           Longitude[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(Longitude);
+          //Serial.print(Longitude);
           break; 
         case 6: // Meridian, fixed length 1
           Meridian = sentence[i+1];
@@ -267,15 +227,13 @@ void GPS::parseUBX0()
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(Altitude)-1) Altitude[j++] = sentence[i+1+j];
           Altitude[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(Altitude);
+          //Serial.print(Altitude);
           break;
         case 8: // NavStat
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(NavStat)-1) NavStat[j++] = sentence[i+1+j];
           NavStat[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(NavStat);
+          //Serial.println(NavStat);
           break;        
         case 9:  // Hacc
           break;    
@@ -285,22 +243,20 @@ void GPS::parseUBX0()
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(SOG)-1) SOG[j++] = sentence[i+1+j];
           SOG[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(SOG);
+          //Serial.print(SOG);
           break;  
         case 12: // Course over ground in degrees
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(COG)-1) COG[j++] = sentence[i+1+j];
           COG[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(COG);
+          //Serial.print(COG);
           break;      
         case 13: // Vertical velocity
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(Vvel)-1) Vvel[j++] = sentence[i+1+j];
           Vvel[j] = 0;
-          if(DEBUG_ENABLED)  
-            DEBUG.print(Vvel);
+          Vvel[0] == '-'? ascdesc='A' : ascdesc='D';
+          //Serial.print(Vvel);
           break;   
         case 14: // Age of most recent DGPS corrections, empty = none available
           break;
@@ -308,29 +264,25 @@ void GPS::parseUBX0()
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(HDOP)-1) HDOP[j++] = sentence[i+1+j];
           HDOP[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(HDOP);         
+          //Serial.print(HDOP);         
           break;     
         case 16: // VDOP
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(VDOP)-1) VDOP[j++] = sentence[i+1+j];
           VDOP[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(VDOP);          
+          //Serial.print(VDOP);          
           break;
         case 17: // TDOP
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(TDOP)-1) TDOP[j++] = sentence[i+1+j];
           TDOP[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(TDOP);           
+          //Serial.print(TDOP);           
           break;              
         case 18: // Number of GPS satellites used in the navigation solution
           j=0;
           while(sentence[i+1+j] != ',' && j<sizeof(SatNum)-1) SatNum[j++] = sentence[i+1+j];
           SatNum[j] = 0;
-          if(DEBUG_ENABLED)
-            DEBUG.print(SatNum);
+          //Serial.print(SatNum);
           break;             
         default:
           return;  
@@ -339,35 +291,19 @@ void GPS::parseUBX0()
   }  
 }
 
-void GPS::setDefaults(boolean validTime)
+void GPS::setDefaults()
 {  
-  if(validTime) // No Fix does't mean the GPS is not synchronized with satellites.
-  {
-    utcTime[0] = sentence[8];
-    utcTime[1] = sentence[9];
-    utcTime[2] = sentence[10];
-    utcTime[3] = sentence[11];
-    utcTime[4] = sentence[12];
-    utcTime[5] = sentence[13];
-    utcTime[6] = sentence[14];
-    utcTime[7] = sentence[15];
-    utcTime[8] = sentence[16];
-    utcTime[9] = 0;
-  }
-  else
-  {
-    utcTime[0] = '0';
-    utcTime[1] = '0';
-    utcTime[2] = '0';
-    utcTime[3] = '0';
-    utcTime[4] = '0';
-    utcTime[5] = '0';
-    utcTime[6] = '0';
-    utcTime[7] = '0';
-    utcTime[8] = '0';
-    utcTime[9] = 0;    
-  }
-  
+  utcTime[0] = '0';
+  utcTime[1] = '0';
+  utcTime[2] = '0';
+  utcTime[3] = '0';
+  utcTime[4] = '0';
+  utcTime[5] = '0';
+  utcTime[6] = '0';
+  utcTime[7] = '0';
+  utcTime[8] = '0';
+  utcTime[9] = 0;    
+
   Latitude[0] = '0'; 
   Latitude[1] = '0'; 
   Latitude[2] = '0';
@@ -429,7 +365,7 @@ void GPS::setDefaults(boolean validTime)
   COG[5] = '0';
   COG[6] = 0;
   
-  Vvel[0] = '?';
+  Vvel[0] = '0';
   Vvel[1] = '0';
   Vvel[2] = '0';
   Vvel[3] = '0';
@@ -459,59 +395,109 @@ void GPS::setDefaults(boolean validTime)
   gLon[5] = '0';
   gLon[6] = '0';
   gLon[7] = 0;
+  
+  ascdesc='F';
 }
 
-void GPS::calcCoords()
-{
-  char latstr[8] = { Latitude[2], Latitude[3], Latitude[5], Latitude[6], Latitude[7], Latitude[8], Latitude[9], 0 };
-  dtostrf((atol(latstr) / 60), 4, 0, latstr); 
-  
+void GPS::makeGlat()
+{  
+  char lat_minutes[8] = { Latitude[2], Latitude[3], Latitude[5], Latitude[6], Latitude[7], Latitude[8], Latitude[9], 0 };
+  char lat_minutes_str[8];
+
+  ltoa((atol(lat_minutes) / 60), lat_minutes_str, 10);
+
   gLat[0] = Latitude[0];
   gLat[1] = Latitude[1];
   gLat[2] = '.';
-  gLat[3] = latstr[0];
-  gLat[4] = latstr[1];
-  gLat[5] = latstr[2];
-  gLat[6] = latstr[3];
-  gLat[7] = 0;
-       
-  char lonstr[9] = { Longitude[3], Longitude[4], Longitude[6], Longitude[7], Longitude[8], Longitude[9], Longitude[10], Longitude[11], 0 };
-  dtostrf((atol(lonstr) / 60), 4, 0, lonstr); 
-  
+
+  if(lat_minutes[0]=='0' && lat_minutes[1]=='0' && lat_minutes[2]=='0') 
+  {
+    //snprintf(gLat, 8, "%i.000%1li", lat_degrees, lat_minutes); 
+    gLat[3] = '0';
+    gLat[4] = '0';
+    gLat[5] = '0';
+    gLat[6] = lat_minutes_str[0];
+    gLat[7] = 0;
+  }   
+  else if(lat_minutes[0]=='0' && lat_minutes[1]=='0') 
+  {
+    //snprintf(gLat, 8, "%i.00%2li", lat_degrees, lat_minutes); 
+    gLat[3] = '0';
+    gLat[4] = '0';
+    gLat[5] = lat_minutes_str[0];
+    gLat[6] = lat_minutes_str[1];
+    gLat[7] = 0;
+  }
+  else if(lat_minutes[0]=='0') 
+  {
+    //snprintf(gLat, 8, "%i.0%3li", lat_degrees, lat_minutes);
+    gLat[3] = '0';
+    gLat[4] = lat_minutes_str[0];
+    gLat[5] = lat_minutes_str[1];
+    gLat[6] = lat_minutes_str[2];
+    gLat[7] = 0;    
+  }
+  else
+  {
+    //snprintf(gLat, 8, "%i.%4li", lat_degrees, lat_minutes);    
+    gLat[3] = lat_minutes_str[0];
+    gLat[4] = lat_minutes_str[1];
+    gLat[5] = lat_minutes_str[2];
+    gLat[6] = lat_minutes_str[3];
+    gLat[7] = 0;       
+  } 
+}
+
+void GPS::makeGlon()
+{
+  char lon_minutes[9] = { Longitude[3], Longitude[4], Longitude[6], Longitude[7], Longitude[8], Longitude[9], Longitude[10], Longitude[11], 0 };
+  char lon_minutes_str[9];
+ 
+  ltoa((atol(lon_minutes) / 60), lon_minutes_str, 10);
+
   gLon[0] = Longitude[1];
   gLon[1] = Longitude[2];
   gLon[2] = '.';
-  gLon[3] = lonstr[0];
-  gLon[4] = lonstr[1];
-  gLon[5] = lonstr[2];
-  gLon[6] = lonstr[3];
-  gLon[7] = 0;  
+  
+  if(lon_minutes[0]=='0' && lon_minutes[1]=='0' && lon_minutes[2]=='0') 
+  {
+    //snprintf(gLon, 8, "%i.000%1li", lon_degrees, lon_minutes);
+    gLon[3] = '0';
+    gLon[4] = '0';
+    gLon[5] = '0';
+    gLon[6] = lon_minutes_str[0];
+    gLon[7] = 0;  
+  }
+  else if(lon_minutes[0]=='0' && lon_minutes[1]=='0') 
+  {
+    //snprintf(gLon, 8, "%i.00%2li", lon_degrees, lon_minutes); 
+    gLon[3] = '0';
+    gLon[4] = '0';
+    gLon[5] = lon_minutes_str[0];
+    gLon[6] = lon_minutes_str[1];
+    gLon[7] = 0;    
+  }
+  else if(lon_minutes[0]=='0') 
+  {
+    //snprintf(gLon, 8, "%i.0%3li", lon_degrees, lon_minutes);
+    gLon[3] = '0';
+    gLon[4] = lon_minutes_str[0];
+    gLon[5] = lon_minutes_str[1];
+    gLon[6] = lon_minutes_str[2];
+    gLon[7] = 0;      
+  }
+  else
+  {
+    //snprintf(gLon, 8, "%i.%4li", lon_degrees, lon_minutes);  
+    gLon[3] = lon_minutes_str[0];
+    gLon[4] = lon_minutes_str[1];
+    gLon[5] = lon_minutes_str[2];
+    gLon[6] = lon_minutes_str[3];
+    gLon[7] = 0;        
+  }
 }
 
 byte GPS::hex2Byte(char val) 
 {
   return val >= 'A' && val <= 'F' ? val - 'A' + 10 : val - '0';
 }
-
-void GPS::recAltitude()
-{
-  // Record Highest Altitude Record on EEPROM
-  if(atoi(Altitude) > highestAlt)
-  {
-    highestAlt = atoi(Altitude);
-    byte i = 0;
-    
-    for(i=0; i<4; i++)
-      EEPROM.write(i+900, utcTime[i]);
-      
-    for(i=0; i<7; i++)
-      EEPROM.write(i+904, gLat[i]);
-    
-    for(i=0; i<7; i++)
-      EEPROM.write(i+921, gLon[i]);
-    
-    for(i=0; i<5; i++)
-      EEPROM.write(i+928, Altitude[i]);  
-  }
-}
-
