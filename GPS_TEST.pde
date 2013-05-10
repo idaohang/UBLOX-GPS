@@ -21,7 +21,7 @@ void setup()
 
 void loop()
 {      
-    gps.readSentence(GPS_PORT);
-    Serial.println(gps.sentence);         
+  gps.readSentence(GPS_PORT);
+  Serial.println(gps.sentence);         
 }
 
