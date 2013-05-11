@@ -1,6 +1,9 @@
 This is an arduino compatible code. 
 
-Chipset UBX-G5010
+It speaks the Ublox5 protocol.
+
+Chipset UBX-G5010 Chip
+------------------------
 
 UART (TTL) interface
 Digital I/O Voltage Level 1.65 – 3.6 V
