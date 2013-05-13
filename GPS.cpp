@@ -1,10 +1,10 @@
 /*
 
-Copyright (C)2011 Kostas Tamateas <nosebleedKT@gmail.com>
-This program is distributed under the terms of the GNU
-General Public License, version 2. You may use, modify,
-and redistribute it under the terms of this license.
-A copy should be included with this source.
+  Copyright (C)2011 Kostas Tamateas <nosebleedKT@gmail.com>
+  This program is distributed under the terms of the GNU
+  General Public License, version 2. You may use, modify,
+  and redistribute it under the terms of this license.
+  A copy should be included with this source.
 
 */
 
@@ -23,8 +23,7 @@ boolean GPS::setup(unsigned long baud, HardwareSerial &serialport)
   // Serial.print("Setting Airbone mode..");  
   if(sendUBX(airbone1G, sizeof(airbone1G), serialport)) healthFlag |= 0b10000000;
   
-  // Serial.print("Disabling SBAS..");
-  if(sendUBX(SBASOFF, sizeof(SBASOFF), serialport)) healthFlag |= 0b00000001;
+  healthFlag |= 0b00000001;
   
   // Serial.print("Disabling GGA..");
   if(sendUBX(GGAOFF, sizeof(GGAOFF), serialport)) healthFlag |= 0b00000010; 
@@ -131,7 +130,6 @@ void GPS::readSentence(HardwareSerial &serialport)
   index = 0;   
   parity = 0;
   checksum = 0;
-  setDefaults();   
   
   serialport.println("$PUBX,00*33");
 
@@ -176,16 +174,20 @@ void GPS::readSentence(HardwareSerial &serialport)
     if(checksum == parity)
     {
       parseUBX0();
-      if(strcmp(NavStat, "NF") != 0 ) 
+      if(strcmp(NavStat, "NF") != 0 ) // Got fix?
       {
-        makeGlat();
-        makeGlon(); 
-        return;      
+        // Good
+      }
+      else
+      {
+        setDefaults();        
       }
     }
   }
-  
-  setDefaults();
+  else
+  {
+    setDefaults();
+  }
 }
 
 void GPS::parseUBX0()
@@ -378,123 +380,7 @@ void GPS::setDefaults()
   SatNum[1] = '0';
   SatNum[2] = 0;
   
-  gLat[0] = '0';
-  gLat[1] = '0';
-  gLat[2] = '.';
-  gLat[3] = '0';
-  gLat[4] = '0';
-  gLat[5] = '0';
-  gLat[6] = '0';
-  gLat[7] = 0;
-  
-  gLon[0] = '0';
-  gLon[1] = '0';
-  gLon[2] = '.';
-  gLon[3] = '0';
-  gLon[4] = '0';
-  gLon[5] = '0';
-  gLon[6] = '0';
-  gLon[7] = 0;
-  
   ascdesc='F';
-}
-
-void GPS::makeGlat()
-{  
-  char lat_minutes[8] = { Latitude[2], Latitude[3], Latitude[5], Latitude[6], Latitude[7], Latitude[8], Latitude[9], 0 };
-  char lat_minutes_str[8];
-
-  ltoa((atol(lat_minutes) / 60), lat_minutes_str, 10);
-
-  gLat[0] = Latitude[0];
-  gLat[1] = Latitude[1];
-  gLat[2] = '.';
-
-  if(lat_minutes[0]=='0' && lat_minutes[1]=='0' && lat_minutes[2]=='0') 
-  {
-    //snprintf(gLat, 8, "%i.000%1li", lat_degrees, lat_minutes); 
-    gLat[3] = '0';
-    gLat[4] = '0';
-    gLat[5] = '0';
-    gLat[6] = lat_minutes_str[0];
-    gLat[7] = 0;
-  }   
-  else if(lat_minutes[0]=='0' && lat_minutes[1]=='0') 
-  {
-    //snprintf(gLat, 8, "%i.00%2li", lat_degrees, lat_minutes); 
-    gLat[3] = '0';
-    gLat[4] = '0';
-    gLat[5] = lat_minutes_str[0];
-    gLat[6] = lat_minutes_str[1];
-    gLat[7] = 0;
-  }
-  else if(lat_minutes[0]=='0') 
-  {
-    //snprintf(gLat, 8, "%i.0%3li", lat_degrees, lat_minutes);
-    gLat[3] = '0';
-    gLat[4] = lat_minutes_str[0];
-    gLat[5] = lat_minutes_str[1];
-    gLat[6] = lat_minutes_str[2];
-    gLat[7] = 0;    
-  }
-  else
-  {
-    //snprintf(gLat, 8, "%i.%4li", lat_degrees, lat_minutes);    
-    gLat[3] = lat_minutes_str[0];
-    gLat[4] = lat_minutes_str[1];
-    gLat[5] = lat_minutes_str[2];
-    gLat[6] = lat_minutes_str[3];
-    gLat[7] = 0;       
-  } 
-}
-
-void GPS::makeGlon()
-{
-  char lon_minutes[9] = { Longitude[3], Longitude[4], Longitude[6], Longitude[7], Longitude[8], Longitude[9], Longitude[10], Longitude[11], 0 };
-  char lon_minutes_str[9];
- 
-  ltoa((atol(lon_minutes) / 60), lon_minutes_str, 10);
-
-  gLon[0] = Longitude[1];
-  gLon[1] = Longitude[2];
-  gLon[2] = '.';
-  
-  if(lon_minutes[0]=='0' && lon_minutes[1]=='0' && lon_minutes[2]=='0') 
-  {
-    //snprintf(gLon, 8, "%i.000%1li", lon_degrees, lon_minutes);
-    gLon[3] = '0';
-    gLon[4] = '0';
-    gLon[5] = '0';
-    gLon[6] = lon_minutes_str[0];
-    gLon[7] = 0;  
-  }
-  else if(lon_minutes[0]=='0' && lon_minutes[1]=='0') 
-  {
-    //snprintf(gLon, 8, "%i.00%2li", lon_degrees, lon_minutes); 
-    gLon[3] = '0';
-    gLon[4] = '0';
-    gLon[5] = lon_minutes_str[0];
-    gLon[6] = lon_minutes_str[1];
-    gLon[7] = 0;    
-  }
-  else if(lon_minutes[0]=='0') 
-  {
-    //snprintf(gLon, 8, "%i.0%3li", lon_degrees, lon_minutes);
-    gLon[3] = '0';
-    gLon[4] = lon_minutes_str[0];
-    gLon[5] = lon_minutes_str[1];
-    gLon[6] = lon_minutes_str[2];
-    gLon[7] = 0;      
-  }
-  else
-  {
-    //snprintf(gLon, 8, "%i.%4li", lon_degrees, lon_minutes);  
-    gLon[3] = lon_minutes_str[0];
-    gLon[4] = lon_minutes_str[1];
-    gLon[5] = lon_minutes_str[2];
-    gLon[6] = lon_minutes_str[3];
-    gLon[7] = 0;        
-  }
 }
 
 byte GPS::hex2Byte(char val) 
